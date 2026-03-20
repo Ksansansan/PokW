@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>アルス採集 最適化シミュレーター</title>
+    <style>
+        :root {
+            --bg-color: #f4f6f8;
+            --card-bg: #ffffff;
+            --text-main: #333333;
+            --text-sub: #666666;
+            --accent-seaweed: #66bb6a; /* 海藻: 緑系 */
+            --accent-arus: #ab47bc;    /* アルス: 紫系 */
+            --accent-time: #ffa726;    /* 時間: オレンジ系 */
+            --border-radius: 12px;
+            --shadow: 0 4px 12px rgba(0,0,0,0.08);
+        }
+
+        body {
+            font-family: "Helvetica Neue", Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+        }
+
+        .container {
+            max-width: 800px;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        h1 {
+            text-align: center;
+            font-size: 1.4rem;
+            margin: 10px 0 20px;
+            color: var(--text-main);
+            letter-spacing: 0.05em;
+        }
+
+        /* カード共通 */
+        .card {
+            background: var(--card-bg);
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow);
+            padding: 24px;
+        }
+
+        /* 入力エリア */
+        .input-group {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 16px;
+        }
+
+        .input-item {
+            display: flex;
+            flex-direction: column;
+        }
+
+        label {
+            font-size: 0.85rem;
+            color: var(--text-sub);
+            margin-bottom: 6px;
+            font-weight: bold;
+        }
+
+        input[type="number"] {
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 1.1rem;
+            width: 100%;
+            box-sizing: border-box;
+            background: #f9f9f9;
+            transition: all 0.2s;
+            text-align: center;
+        }
+
+        input[type="number"]:focus {
+            outline: none;
+            border-color: #888;
+            background: #fff;
+        }
+
+        /* 結果ハイライト */
+        .result-highlight {
+            text-align: center;
+            padding: 20px 0;
+            border-bottom: 1px dashed #eee;
+            margin-bottom: 20px;
+        }
+
+        .result-highlight h2 {
+            margin: 0 0 10px 0;
+            font-size: 1.1rem;
+            color: var(--text-sub);
+        }
+
+        .optimal-value {
+            font-size: 2.8rem;
+            font-weight: 900;
+            color: var(--accent-arus);
+            line-height: 1.1;
+        }
+
+        .optimal-sub {
+            font-size: 0.9rem;
+            color: #888;
+            margin-top: 5px;
+        }
+
+        /* 詳細データグリッド */
+        .detail-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .detail-box {
+            background: #fafafa;
+            border-radius: 8px;
+            padding: 16px;
+            border: 1px solid #eee;
+            text-align: center;
+        }
+
+        .detail-box.seaweed { border-top: 4px solid var(--accent-seaweed); }
+        .detail-box.arus { border-top: 4px solid var(--accent-arus); }
+        .detail-box.total { 
+            grid-column: span 2; 
+            background: #fff8e1; /* 薄いオレンジ */
+            border-color: #ffe082;
+            border-top: 4px solid var(--accent-time);
+        }
+
+        .box-title {
+            font-size: 0.9rem;
+            font-weight: bold;
+            margin-bottom: 8px;
+            color: var(--text-main);
+        }
+
+        .box-value {
+            font-size: 1.3rem;
+            font-weight: bold;
+            margin-bottom: 4px;
+        }
+
+        .box-sub {
+            font-size: 0.8rem;
+            color: var(--text-sub);
+        }
+
+        .seaweed-color { color: var(--accent-seaweed); }
+        .arus-color { color: var(--accent-arus); }
+        .time-color { color: var(--accent-time); }
+
+        @media (max-width: 600px) {
+            .input-group { grid-template-columns: 1fr; }
+            .detail-grid { grid-template-columns: 1fr; }
+            .detail-box.total { grid-column: span 1; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>アルス採集 最適化計算機</h1>
+
+    <!-- 入力エリア -->
+    <div class="card">
+        <div class="input-group">
+            <div class="input-item">
+                <label>1回の海藻採取量</label>
+                <input type="number" id="inpSeaweed" placeholder="例: 100" min="1">
+            </div>
+            <div class="input-item">
+                <label>必要なアルス数</label>
+                <input type="number" id="inpTargetArus" placeholder="例: 1000000" min="1">
+            </div>
+        </div>
+    </div>
+
+    <!-- 結果表示エリア -->
+    <div class="card">
+        <div class="result-highlight">
+            <h2>海藻を集め終わる（切り替える）最適なライン</h2>
+            <div>
+                <span class="optimal-value" id="resOptimalArus">--</span> <span style="font-weight:bold; color:var(--text-sub);">個 / 回</span>
+            </div>
+            <div class="optimal-sub" id="resUpgradeCount">現在から +0 回アップグレード</div>
+        </div>
+
+        <div class="detail-grid">
+            <div class="detail-box seaweed">
+                <div class="box-title seaweed-color">前半：海藻を集める</div>
+                <div class="box-value" id="resSeaweedTime">--</div>
+                <div class="box-sub" id="resSeaweedDetail">消費海藻: 0 / 採取: 0回</div>
+            </div>
+
+            <div class="detail-box arus">
+                <div class="box-title arus-color">後半：アルスを集める</div>
+                <div class="box-value" id="resArusTime">--</div>
+                <div class="box-sub" id="resArusDetail">目標: 0 / 採取: 0回</div>
+            </div>
+
+            <div class="detail-box total">
+                <div class="box-title time-color">最速クリア合計時間 (0.5秒/回)</div>
+                <div class="box-value time-color" id="resTotalTime" style="font-size: 1.8rem;">--</div>
+                <div class="box-sub" id="resTotalClicks">合計アクション数: 0回</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const STORAGE_KEY = 'poco_world_arus_sim';
+
+    // DOM要素
+    const els = {
+        seaweed: document.getElementById('inpSeaweed'),
+        targetArus: document.getElementById('inpTargetArus'),
+        optArus: document.getElementById('resOptimalArus'),
+        upgCount: document.getElementById('resUpgradeCount'),
+        
+        swTime: document.getElementById('resSeaweedTime'),
+        swDetail: document.getElementById('resSeaweedDetail'),
+        
+        arTime: document.getElementById('resArusTime'),
+        arDetail: document.getElementById('resArusDetail'),
+        
+        totTime: document.getElementById('resTotalTime'),
+        totClicks: document.getElementById('resTotalClicks')
+    };
+
+    // 時間を読みやすい形式に変換する関数
+    function formatTime(seconds) {
+        if (seconds === 0) return "0秒";
+        if (seconds < 60) return seconds.toFixed(1) + "秒";
+        
+        let m = Math.floor(seconds / 60);
+        let s = seconds % 60;
+        
+        if (m < 60) {
+            return m + "分 " + (s > 0 ? s.toFixed(0) + "秒" : "");
+        }
+        
+        let h = Math.floor(m / 60);
+        m = m % 60;
+        
+        let d = Math.floor(h / 24);
+        if (d > 0) {
+            h = h % 24;
+            return d + "日 " + h + "時間 " + m + "分";
+        }
+        
+        return h + "時間 " + m + "分 " + (s > 0 ? s.toFixed(0) + "秒" : "");
+    }
+
+    // 計算のメインロジック
+    function calculate() {
+        const seaweedPerClick = parseInt(els.seaweed.value) || 0;
+        const targetArus = parseInt(els.targetArus.value) || 0;
+
+        if (seaweedPerClick <= 0 || targetArus <= 0) {
+            resetUI();
+            return;
+        }
+
+        let bestTotalClicks = Infinity;
+        let bestN = 0; // アップグレード回数
+
+        // 理論上の最適解付近を計算 (微分して求めた近似値)
+        // N = sqrt( Target * Seaweed / 60000 )
+        const theoreticalN = Math.floor(Math.sqrt((targetArus * seaweedPerClick) / 60000));
+        
+        // 誤差を考慮して理論値の周辺(前後1000回分)を全探索して厳密な最小値を見つける
+        const searchStart = Math.max(0, theoreticalN - 1000);
+        const searchEnd = Math.max(100, theoreticalN + 1000);
+
+        for (let N = searchStart; N <= searchEnd; N++) {
+            // N回アップグレードするための海藻を集める回数
+            const reqSeaweed = N * 60000;
+            const clicksSeaweed = Math.ceil(reqSeaweed / seaweedPerClick);
+            
+            // アップグレード後のアルス採取量で目標まで集める回数
+            const newArusPerClick = N;
+            const clicksArus = Math.ceil(targetArus / newArusPerClick);
+            
+            const totalClicks = clicksSeaweed + clicksArus;
+
+            if (totalClicks < bestTotalClicks) {
+                bestTotalClicks = totalClicks;
+                bestN = N;
+            }
+        }
+
+        updateUI(seaweedPerClick, targetArus, bestN);
+        saveData();
+    }
+
+    // UIの更新
+    function updateUI(swPer, tarArus, optN) {
+        const finalArusPerClick =optN;
+        const reqSeaweed = optN * 60000;
+        
+        const clicksSw = Math.ceil(reqSeaweed / swPer);
+        const clicksAr = Math.ceil(tarArus / finalArusPerClick);
+        const totalClicks = clicksSw + clicksAr;
+
+        els.optArus.textContent = finalArusPerClick.toLocaleString();
+        els.upgCount.textContent = `現在から +${optN.toLocaleString()} 回アップグレード`;
+
+        els.swTime.textContent = formatTime(clicksSw * 0.5);
+        els.swDetail.textContent = `消費海藻: ${reqSeaweed.toLocaleString()} / 採取: ${clicksSw.toLocaleString()}回`;
+
+        els.arTime.textContent = formatTime(clicksAr * 0.5);
+        els.arDetail.textContent = `目標: ${tarArus.toLocaleString()} / 採取: ${clicksAr.toLocaleString()}回`;
+
+        els.totTime.textContent = formatTime(totalClicks * 0.5);
+        els.totClicks.textContent = `合計アクション数: ${totalClicks.toLocaleString()}回`;
+    }
+
+    function resetUI() {
+        els.optArus.textContent = "--";
+        els.upgCount.textContent = "現在から +0 回アップグレード";
+        els.swTime.textContent = "--";
+        els.swDetail.textContent = "消費海藻: 0 / 採取: 0回";
+        els.arTime.textContent = "--";
+        els.arDetail.textContent = "目標: 0 / 採取: 0回";
+        els.totTime.textContent = "--";
+        els.totClicks.textContent = "合計アクション数: 0回";
+    }
+
+    // データの保存と読み込み
+    function saveData() {
+        const data = {
+            sw: els.seaweed.value,
+            ta: els.targetArus.value,
+        };
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    }
+
+    function loadData() {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved) {
+            try {
+                const parsed = JSON.parse(saved);
+                els.seaweed.value = parsed.sw || "";
+                els.targetArus.value = parsed.ta || "";
+            } catch(e) {}
+        }
+        calculate();
+    }
+
+    // イベントリスナー
+    els.seaweed.addEventListener('input', calculate);
+    els.targetArus.addEventListener('input', calculate);
+
+    // 初期読み込み
+    loadData();
+
+</script>
+
+</body>
+</html>
